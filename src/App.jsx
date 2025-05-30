@@ -191,6 +191,7 @@ function App() {
         anchor: 'center',
         align: 'center',
     formatter: (value) => value.title,
+          color: '#000',
        
         },
         font: {
