@@ -17,6 +17,19 @@ Chart.register(BarElement, CategoryScale, LinearScale, TimeScale, Tooltip, Legen
 
 const STORAGE_KEY = 'life-timeline-milestones';
 
+function parseDate(value) {
+  // Accept YYYY-MM-DD or MM/DD/YYYY
+  if (!value) return null;
+  const isoMatch = /^\d{4}-\d{2}-\d{2}$/.test(value);
+  const usMatch = /^\d{2}\/\d{2}\/\d{4}$/.test(value);
+  if (isoMatch) return new Date(value);
+  if (usMatch) {
+    const [m, d, y] = value.split('/');
+    return new Date(`${y}-${m}-${d}`);
+  }
+  return null;
+}
+
 function App() {
   const [milestones, setMilestones] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -30,6 +43,8 @@ function App() {
     end: ''
   });
 
+  const [editingId, setEditingId] = useState(null);
+
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(milestones));
   }, [milestones]);
@@ -42,29 +57,49 @@ function App() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const addMilestone = () => {
-    if (!form.title || !form.start || !form.end) return;
-    setMilestones([...milestones, { id: uuidv4(), ...form }]);
+  const handleSubmit = () => {
+    // Basic validation
+    const startDate = parseDate(form.start);
+    const endDate = parseDate(form.end);
+    if (!form.title || !startDate || !endDate) return;
+
+    if (editingId) {
+      // Update existing
+      setMilestones(
+        milestones.map((m) =>
+          m.id === editingId ? { ...m, ...form } : m
+        )
+      );
+      setEditingId(null);
+    } else {
+      // Add new
+      setMilestones([...milestones, { id: uuidv4(), ...form }]);
+    }
+
     setForm({ ...form, title: '', start: '', end: '' });
   };
 
   const deleteMilestone = (id) => {
     setMilestones(milestones.filter((m) => m.id !== id));
+    if (editingId === id) setEditingId(null);
+  };
+
+  const editMilestone = (m) => {
+    setForm({ timeline: m.timeline, title: m.title, start: m.start, end: m.end });
+    setEditingId(m.id);
   };
 
   const datasets = timelines.map((tl, idx) => ({
     label: tl,
     data: milestones
       .filter((m) => m.timeline === tl)
-      .map((m) => ({ x: [new Date(m.start).getTime(), new Date(m.end).getTime()], y: m.title, id: m.id })),
+      .map((m) => ({ x: [new Date(m.start).getTime(), new Date(m.end).getTime()], y: tl, id: m.id })),
     backgroundColor: colors[idx % colors.length],
     borderWidth: 1,
     borderColor: '#333'
   }));
 
-  const chartData = {
-    datasets
-  };
+  const chartData = { datasets };
 
   const options = {
     indexAxis: 'y',
@@ -72,26 +107,17 @@ function App() {
       x: {
         type: 'time',
         position: 'top',
-        time: {
-          unit: 'year'
-        },
-        title: {
-          display: true,
-          text: 'Date'
-        }
+        time: { unit: 'year' },
+        title: { display: true, text: 'Date' }
       },
       y: {
         type: 'category',
-        title: {
-          display: true,
-          text: 'Milestones'
-        }
+        labels: timelines,
+        title: { display: true, text: 'Timelines' }
       }
     },
     plugins: {
-      legend: {
-        position: 'bottom'
-      },
+      legend: { position: 'bottom' },
       tooltip: {
         callbacks: {
           label: (ctx) => {
@@ -110,7 +136,7 @@ function App() {
       <h1>Life Timeline Planner</h1>
 
       <div style={{ marginBottom: '1rem' }}>
-        <h3>Add Milestone</h3>
+        <h3>{editingId ? 'Edit Milestone' : 'Add Milestone'}</h3>
         <input
           name="timeline"
           value={form.timeline}
@@ -125,9 +151,28 @@ function App() {
           placeholder="Milestone Title"
           style={{ marginRight: '0.5rem' }}
         />
-        <input type="date" name="start" value={form.start} onChange={handleChange} style={{ marginRight: '0.5rem' }} />
-        <input type="date" name="end" value={form.end} onChange={handleChange} style={{ marginRight: '0.5rem' }} />
-        <button onClick={addMilestone}>Add</button>
+        <input
+          type="text"
+          name="start"
+          value={form.start}
+          onChange={handleChange}
+          placeholder="Start (YYYY-MM-DD)"
+          style={{ marginRight: '0.5rem' }}
+        />
+        <input
+          type="text"
+          name="end"
+          value={form.end}
+          onChange={handleChange}
+          placeholder="End (YYYY-MM-DD)"
+          style={{ marginRight: '0.5rem' }}
+        />
+        <button onClick={handleSubmit}>{editingId ? 'Update' : 'Add'}</button>
+        {editingId && (
+          <button onClick={() => { setForm({ timeline: 'Career', title: '', start: '', end: '' }); setEditingId(null); }} style={{ marginLeft: '0.5rem' }}>
+            Cancel
+          </button>
+        )}
       </div>
 
       <div style={{ height: '400px' }}>
@@ -138,7 +183,10 @@ function App() {
       <ul>
         {milestones.map((m) => (
           <li key={m.id}>
-            <strong>{m.timeline}</strong> - {m.title} ({m.start} to {m.end})
+            <strong>{m.timeline}</strong> – {m.title} ({m.start} → {m.end})
+            <button onClick={() => editMilestone(m)} style={{ marginLeft: '0.5rem' }}>
+              Edit
+            </button>
             <button onClick={() => deleteMilestone(m.id)} style={{ marginLeft: '0.5rem' }}>
               Delete
             </button>
