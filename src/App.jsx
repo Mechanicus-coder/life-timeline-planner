@@ -169,7 +169,13 @@ function App() {
       },
       y: {
         type: 'category',
-        offset: true,
+    
+            ticks: {
+      font: {
+        weight: 'bold',
+      },
+
+            ,offset: true,
         grid: {
           display: false,
         },
