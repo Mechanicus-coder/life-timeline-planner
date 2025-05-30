@@ -46,7 +46,8 @@ function App() {
     title: '',
     timeline: '',
     start: '',
-    end: '',
+    end:
+        notes: '','',
   });
 
   const [editingId, setEditingId] = useState(null);
@@ -80,6 +81,7 @@ function App() {
       timeline: form.timeline,
       start: form.start,
       end: form.end,
+        notes: form.notes,
     };
     setMilestones(prev => {
       if (editingId) {
@@ -87,7 +89,7 @@ function App() {
       }
       return [...prev, newMilestone];
     });
-    setForm({ title: '', timeline: '', start: '', end: '' });
+    setForm({ title: '', timeline: '', start:  notes: '','', end: '' });
     setEditingId(null);
   };
 
@@ -95,7 +97,7 @@ function App() {
     setForm({
       title: m.title,
       timeline: m.timeline,
-      start: m.start,
+      start: m.start, notes: m.notes,
       end: m.end,
     });
     setEditingId(m.id);
@@ -275,6 +277,7 @@ function App() {
           onChange={handleFormChange}
           style={{ marginRight: '0.5rem' }}
         />
+    
         <button onClick={handleSubmit}>{editingId ? 'Update' : 'Add'}</button>
         {editingId && (
           <button
