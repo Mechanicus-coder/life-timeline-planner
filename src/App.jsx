@@ -190,13 +190,8 @@ function App() {
       datalabels: {
         anchor: 'center',
         align: 'center',
-        color: '#fff',
-        formatter: (value, context) => {
-          const dataset = context.dataset;
-          const [startTs, endTs] = value.x;
-          const startYear = new Date(startTs).getFullYear();
-          const endYear = new Date(endTs).getFullYear();
-          return `${dataset.label}\n${startYear}-${endYear}`;
+    formatter: (value) => value.title,
+       
         },
         font: {
           size: 10,
