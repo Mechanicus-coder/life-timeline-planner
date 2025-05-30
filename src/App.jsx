@@ -1,198 +1,302 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Bar } from 'react-chartjs-2';
 import {
-  Chart,
+  Chart as ChartJS,
   BarElement,
   CategoryScale,
   LinearScale,
   TimeScale,
   Tooltip,
-  Legend
+  Legend,
 } from 'chart.js';
-import annotationPlugin from 'chartjs-plugin-annotation';
+import ChartDataLabels from 'chartjs-plugin-datalabels';
 import 'chartjs-adapter-date-fns';
+import { parseISO } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 
-Chart.register(BarElement, CategoryScale, LinearScale, TimeScale, Tooltip, Legend, annotationPlugin);
+ChartJS.register(
+  BarElement,
+  CategoryScale,
+  LinearScale,
+  TimeScale,
+  Tooltip,
+  Legend,
+  ChartDataLabels
+);
 
-const STORAGE_KEY = 'life-timeline-milestones';
+const colorFamilies = [
+  ['#E3F2FD', '#42A5F5', '#1E88E5'], // blue
+  ['#E8F5E9', '#66BB6A', '#43A047'], // green
+  ['#F3E5F5', '#AB47BC', '#8E24AA'], // purple
+  ['#FFF8E1', '#FFB300', '#FB8C00'], // amber
+  ['#E0F2F1', '#26A69A', '#00897B'], // teal
+];
 
-function parseDate(value) {
-  // Accept YYYY-MM-DD or MM/DD/YYYY
-  if (!value) return null;
-  const isoMatch = /^\d{4}-\d{2}-\d{2}$/.test(value);
-  const usMatch = /^\d{2}\/\d{2}\/\d{4}$/.test(value);
-  if (isoMatch) return new Date(value);
-  if (usMatch) {
-    const [m, d, y] = value.split('/');
-    return new Date(`${y}-${m}-${d}`);
-  }
-  return null;
+function getColorFamily(index) {
+  return colorFamilies[index % colorFamilies.length];
 }
 
 function App() {
   const [milestones, setMilestones] = useState(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const saved = localStorage.getItem('milestones');
     return saved ? JSON.parse(saved) : [];
   });
 
   const [form, setForm] = useState({
-    timeline: 'Career',
     title: '',
+    timeline: '',
     start: '',
-    end: ''
+    end: '',
   });
 
   const [editingId, setEditingId] = useState(null);
+  const [hidden, setHidden] = useState(new Set());
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(milestones));
+    localStorage.setItem('milestones', JSON.stringify(milestones));
   }, [milestones]);
 
-  const timelines = Array.from(new Set(milestones.map((m) => m.timeline)));
+  const timelines = useMemo(() => {
+    return Array.from(new Set(milestones.map(m => m.timeline)));
+  }, [milestones]);
 
-  const colors = ['#ff6384', '#36a2eb', '#4bc0c0', '#9966ff', '#ff9f40'];
+  const timelineColors = useMemo(() => {
+    const map = {};
+    timelines.forEach((t, idx) => {
+      map[t] = getColorFamily(idx);
+    });
+    return map;
+  }, [timelines]);
 
-  const handleChange = (e) => {
+  const handleFormChange = e => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = () => {
-    // Basic validation
-    const startDate = parseDate(form.start);
-    const endDate = parseDate(form.end);
-    if (!form.title || !startDate || !endDate) return;
-
-    if (editingId) {
-      // Update existing
-      setMilestones(
-        milestones.map((m) =>
-          m.id === editingId ? { ...m, ...form } : m
-        )
-      );
-      setEditingId(null);
-    } else {
-      // Add new
-      setMilestones([...milestones, { id: uuidv4(), ...form }]);
-    }
-
-    setForm({ ...form, title: '', start: '', end: '' });
+    if (!form.title || !form.timeline || !form.start || !form.end) return;
+    const newMilestone = {
+      id: editingId || uuidv4(),
+      title: form.title,
+      timeline: form.timeline,
+      start: form.start,
+      end: form.end,
+    };
+    setMilestones(prev => {
+      if (editingId) {
+        return prev.map(m => (m.id === editingId ? newMilestone : m));
+      }
+      return [...prev, newMilestone];
+    });
+    setForm({ title: '', timeline: '', start: '', end: '' });
+    setEditingId(null);
   };
 
-  const deleteMilestone = (id) => {
-    setMilestones(milestones.filter((m) => m.id !== id));
-    if (editingId === id) setEditingId(null);
-  };
-
-  const editMilestone = (m) => {
-    setForm({ timeline: m.timeline, title: m.title, start: m.start, end: m.end });
+  const handleEdit = m => {
+    setForm({
+      title: m.title,
+      timeline: m.timeline,
+      start: m.start,
+      end: m.end,
+    });
     setEditingId(m.id);
   };
 
-  const datasets = timelines.map((tl, idx) => ({
-    label: tl,
-    data: milestones
-      .filter((m) => m.timeline === tl)
-      .map((m) => ({ x: [new Date(m.start).getTime(), new Date(m.end).getTime()], y: tl, id: m.id })),
-    backgroundColor: colors[idx % colors.length],
-    borderWidth: 1,
-    borderColor: '#333'
-  }));
-
-  const chartData = { datasets };
-
-  const options = {
-    indexAxis: 'y',
-    scales: {
-      x: {
-        type: 'time',
-        position: 'top',
-        time: { unit: 'year' },
-        title: { display: true, text: 'Date' }
-      },
-      y: {
-        type: 'category',
-        labels: timelines,
-        title: { display: true, text: 'Timelines' }
-      }
-    },
-    plugins: {
-      legend: { position: 'bottom' },
-      tooltip: {
-        callbacks: {
-          label: (ctx) => {
-            const { raw } = ctx;
-            const start = new Date(raw.x[0]).toLocaleDateString();
-            const end = new Date(raw.x[1]).toLocaleDateString();
-            return `${ctx.dataset.label}: ${start} - ${end}`;
-          }
-        }
-      }
+  const handleDelete = id => {
+    setMilestones(prev => prev.filter(m => m.id !== id));
+    if (editingId === id) {
+      setEditingId(null);
+      setForm({ title: '', timeline: '', start: '', end: '' });
     }
   };
 
-  return (
-    <div style={{ padding: '1rem', fontFamily: 'sans-serif' }}>
-      <h1>Life Timeline Planner</h1>
+  const toggleTimeline = t => {
+    setHidden(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(t)) {
+        newSet.delete(t);
+      } else {
+        newSet.add(t);
+      }
+      return newSet;
+    });
+  };
 
+  const chartData = useMemo(() => {
+    const datasets = milestones.map(m => {
+      const [light, mid, dark] = timelineColors[m.timeline] || ['#ccc', '#888', '#555'];
+      return {
+        label: m.title,
+        data: [
+          {
+            x: [parseISO(m.start).getTime(), parseISO(m.end).getTime()],
+            y: m.timeline,
+          },
+        ],
+        backgroundColor: mid,
+        borderColor: dark,
+        borderWidth: 1,
+        borderRadius: 4,
+        hidden: hidden.has(m.timeline),
+      };
+    });
+    return {
+      labels: timelines,
+      datasets,
+    };
+  }, [milestones, timelines, hidden, timelineColors]);
+
+  const options = {
+    indexAxis: 'y',
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      x: {
+        type: 'time',
+        time: {
+          unit: 'year',
+        },
+        grid: {
+          display: false,
+        },
+      },
+      y: {
+        type: 'category',
+        offset: true,
+        grid: {
+          display: false,
+        },
+      },
+    },
+    plugins: {
+      legend: {
+        display: false,
+      },
+      datalabels: {
+        anchor: 'center',
+        align: 'center',
+        color: '#fff',
+        formatter: (value, context) => {
+          const dataset = context.dataset;
+          const [startTs, endTs] = value.x;
+          const startYear = new Date(startTs).getFullYear();
+          const endYear = new Date(endTs).getFullYear();
+          return `${dataset.label}\n${startYear}-${endYear}`;
+        },
+        font: {
+          size: 10,
+          weight: 'bold',
+        },
+        clip: true,
+      },
+    },
+  };
+
+  return (
+    <div style={{ padding: '1rem', fontFamily: 'Arial, sans-serif' }}>
+      <h2>Life Timeline Planner</h2>
+
+      {/* Filter Chips */}
       <div style={{ marginBottom: '1rem' }}>
+        {timelines.map(t => {
+          const [light, mid, dark] = timelineColors[t] || ['#ccc', '#888', '#555'];
+          const isHidden = hidden.has(t);
+          return (
+            <button
+              key={t}
+              onClick={() => toggleTimeline(t)}
+              style={{
+                marginRight: '0.5rem',
+                marginBottom: '0.5rem',
+                padding: '0.25rem 0.75rem',
+                border: `1px solid ${dark}`,
+                borderRadius: '16px',
+                background: isHidden ? '#fff' : light,
+                color: dark,
+                cursor: 'pointer',
+              }}
+            >
+              {isHidden ? 'Show' : 'Hide'} {t}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Chart */}
+      <div style={{ height: '400px', marginBottom: '1.5rem' }}>
+        <Bar data={chartData} options={options} />
+      </div>
+
+      {/* Form */}
+      <div style={{ marginBottom: '1.5rem' }}>
         <h3>{editingId ? 'Edit Milestone' : 'Add Milestone'}</h3>
         <input
+          type="text"
+          name="title"
+          placeholder="Title"
+          value={form.title}
+          onChange={handleFormChange}
+          style={{ marginRight: '0.5rem' }}
+        />
+        <select
           name="timeline"
           value={form.timeline}
-          onChange={handleChange}
-          placeholder="Timeline (e.g., Career)"
+          onChange={handleFormChange}
           style={{ marginRight: '0.5rem' }}
-        />
-        <input
-          name="title"
-          value={form.title}
-          onChange={handleChange}
-          placeholder="Milestone Title"
-          style={{ marginRight: '0.5rem' }}
-        />
+        >
+          <option value="">Select Timeline</option>
+          {timelines.map(t => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
         <input
           type="text"
           name="start"
+          placeholder="YYYY-MM-DD"
           value={form.start}
-          onChange={handleChange}
-          placeholder="Start (YYYY-MM-DD)"
+          onChange={handleFormChange}
           style={{ marginRight: '0.5rem' }}
         />
         <input
           type="text"
           name="end"
+          placeholder="YYYY-MM-DD"
           value={form.end}
-          onChange={handleChange}
-          placeholder="End (YYYY-MM-DD)"
+          onChange={handleFormChange}
           style={{ marginRight: '0.5rem' }}
         />
         <button onClick={handleSubmit}>{editingId ? 'Update' : 'Add'}</button>
         {editingId && (
-          <button onClick={() => { setForm({ timeline: 'Career', title: '', start: '', end: '' }); setEditingId(null); }} style={{ marginLeft: '0.5rem' }}>
+          <button
+            onClick={() => {
+              setEditingId(null);
+              setForm({ title: '', timeline: '', start: '', end: '' });
+            }}
+            style={{ marginLeft: '0.5rem' }}
+          >
             Cancel
           </button>
         )}
       </div>
 
-      <div style={{ height: '400px' }}>
-        <Bar data={chartData} options={options} />
+      {/* Milestone List */}
+      <div>
+        <h3>Milestones</h3>
+        <ul>
+          {milestones.map(m => (
+            <li key={m.id} style={{ marginBottom: '0.5rem' }}>
+              <strong>{m.title}</strong> ({m.timeline}) — {m.start} → {m.end}{' '}
+              <button onClick={() => handleEdit(m)} style={{ marginLeft: '0.5rem' }}>
+                Edit
+              </button>
+              <button onClick={() => handleDelete(m.id)} style={{ marginLeft: '0.5rem' }}>
+                Delete
+              </button>
+            </li>
+          ))}
+        </ul>
       </div>
-
-      <h3>Milestone List</h3>
-      <ul>
-        {milestones.map((m) => (
-          <li key={m.id}>
-            <strong>{m.timeline}</strong> – {m.title} ({m.start} → {m.end})
-            <button onClick={() => editMilestone(m)} style={{ marginLeft: '0.5rem' }}>
-              Edit
-            </button>
-            <button onClick={() => deleteMilestone(m.id)} style={{ marginLeft: '0.5rem' }}>
-              Delete
-            </button>
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
