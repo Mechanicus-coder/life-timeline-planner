@@ -277,7 +277,14 @@ function App() {
           onChange={handleFormChange}
           style={{ marginRight: '0.5rem' }}
         />
-    
+  <input
+    type="text"
+    name="notes"
+    placeholder="Notes"
+    value={form.notes}
+    onChange={handleFormChange}
+    style={{ marginRight: '0.5rem' }}
+    />/>    
         <button onClick={handleSubmit}>{editingId ? 'Update' : 'Add'}</button>
         {editingId && (
           <button
