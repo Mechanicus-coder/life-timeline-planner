@@ -237,19 +237,14 @@ function App() {
           onChange={handleFormChange}
           style={{ marginRight: '0.5rem' }}
         />
-        <select
+                <input
+          type="text"
           name="timeline"
+          placeholder="Timeline"
           value={form.timeline}
           onChange={handleFormChange}
           style={{ marginRight: '0.5rem' }}
-        >
-          <option value="">Select Timeline</option>
-          {timelines.map(t => (
-            <option key={t} value={t}>
-              {t}
-            </option>
-          ))}
-        </select>
+        
         <input
           type="text"
           name="start"
