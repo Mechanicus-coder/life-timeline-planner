@@ -122,27 +122,35 @@ function App() {
   };
 
   const chartData = useMemo(() => {
-    const datasets = milestones.map(m => {
-      const [light, mid, dark] = timelineColors[m.timeline] || ['#ccc', '#888', '#555'];
+        const grouped = {};
+    milestones.forEach(m => {
+      if (!grouped[m.timeline]) grouped[m.timeline] = [];
+      grouped[m.timeline].push(m);
+    });
+
+    const datasets = Object.entries(grouped).map(([timeline, ms]) => {
+      const [light, mid, dark] = timelineColors[timeline] || ['#ccc', '#888', '#555'];
       return {
-        label: m.title,
-        data: [
-          {
-            x: [parseISO(m.start).getTime(), parseISO(m.end).getTime()],
-            y: m.timeline,
-          },
-        ],
+        label: timeline,
+        data: ms.map(m => ({
+          x: [parseISO(m.start).getTime(), parseISO(m.end).getTime()],
+          y: timeline,
+          title: m.title,
+          id: m.id,
+        })),
         backgroundColor: mid,
         borderColor: dark,
         borderWidth: 1,
         borderRadius: 4,
-        hidden: hidden.has(m.timeline),
+        hidden: hidden.has(timeline),
       };
     });
+
     return {
       labels: timelines,
       datasets,
     };
+
   }, [milestones, timelines, hidden, timelineColors]);
 
   const options = {
