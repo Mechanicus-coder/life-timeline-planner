@@ -190,7 +190,8 @@ function App() {
       datalabels: {
         anchor: 'center',
         align: 'center',
-    formatter: (value) => value.title,
+      display: true,
+        formatter: (value) => value.title,
           color: '#000',
        
         },
