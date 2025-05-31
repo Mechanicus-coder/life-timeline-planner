@@ -142,16 +142,16 @@ function App() {
         })),
         backgroundColor: mid,
         borderColor: dark,
-        borderWidth:
-            datalabels: {
-    display: true,
-    anchor: 'center',
-    align: 'center',
-    color: '#000',
-    font: { size: 10, weight: 'bold' },
-    formatter: (value) => value.title,
-    clip: true,
-  },1
+      borderWidth: 1,
+      datalabels: {
+        display: true,
+        color: '#000',
+        anchor: 'center',
+        align: 'center',
+        formatter: (value, ctx) => ctx.raw.title,
+        font: { size: 10, weight: 'bold' },
+        clip: true
+      },,1
         borderRadius: 4,
         hidden: hidden.has(timeline),
       };
