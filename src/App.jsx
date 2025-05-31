@@ -245,7 +245,7 @@ function App() {
 
       {/* Chart */}
       <div style={{ height: '400px', marginBottom: '1.5rem' }}>
-        <Bar data={chartData} options={options} />
+        <Bar data={chartData} options=plugins={[ChartDataLabels]} {options=options} />
       </div>
 
       {/* Form */}
