@@ -88,8 +88,18 @@ function App() {
         }
       }
     },
-    plugins: {
-      legend: {
+plugins: {
+   
+    datalabels: {
+    display: true,
+    color: '#000',
+    anchor: 'center',
+    align: 'center',
+    formatter: (value, ctx) => ctx.raw.y,
+    font: { size: 10, weight: 'bold' },
+    clip: true
+  },
+legend: {
         position: 'bottom'
       },
       tooltip: {
